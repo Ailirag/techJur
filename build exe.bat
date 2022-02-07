@@ -1,0 +1,1 @@
+pyinstaller.exe --onefile --icon=tj.ico --paths venv\Lib\site-packages LogCfgLoader.py
