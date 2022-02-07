@@ -7,7 +7,9 @@ import time
 import zipfile
 import configparser
 import tempfile
+import psutil
 from datetime import datetime
+
 
 new_log = f'{os.getcwd()}{os.sep}log.txt'
 path_to_archives = f'{os.getcwd()}{os.sep}archives'
@@ -143,14 +145,26 @@ def get_purpose_path():
 
     mas_of_path = []
 
-    for disk in list_of_mount:
-        for path in variables_of_path:
-            if os.path.exists(disk + path):
-                variant = f'{disk}{path}'
-                with os.scandir(variant) as directories:
-                    for dir in directories:
-                        if dir.name.find('8.') != -1:
-                            mas_of_path.append(dir.path)
+    for proc in psutil.win_service_iter():
+        if proc.status() == 'running':
+            binpath = proc.binpath()
+            finded = re.findall("([\w]:.*?)\\\\bin\\\\ragent.exe", binpath)
+            if finded:
+                mas_of_path.append(finded[0])
+        # if re.
+        # if proc.binpath().find('1cv8') and proc.status() == 'running':
+        #     mas_of_path.append(proc.binpath().split('bin')[0])
+
+    # start old mechanism
+    # for disk in list_of_mount:
+    #     for path in variables_of_path:
+    #         if os.path.exists(disk + path):
+    #             variant = f'{disk}{path}'
+    #             with os.scandir(variant) as directories:
+    #                 for dir in directories:
+    #                     if dir.name.find('8.') != -1:
+    #                         mas_of_path.append(dir.path)
+    # end old mechanism
 
     if len(mas_of_path) > 1:
         logging(f'Find {len(mas_of_path) - 1} paths of platforms 1C')
