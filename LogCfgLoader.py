@@ -16,8 +16,8 @@ silent_mode = len(sys.argv) > 1
 if silent_mode:
     silent = dict()
     silent['target'] = sys.argv[1]
-    silent['action'] = sys.argv[2]
-    silent['logcfg'] = sys.atgv[3]
+    silent['logcfg'] = sys.argv[2]
+    silent['action'] = sys.argv[3]
     if silent['action'] == '-run':
         silent['action_with_log'] = sys.argv[4]
 
@@ -264,7 +264,8 @@ try:
                     sys.exit()
                 else:
                     logging('THE PROGRAM WAS CLOSED')
-                    input('The program is finished. Press [Enter] to close.')
+                    if not silent_mode:
+                        input('The program is finished. Press [Enter] to close.')
                     sys.exit()
 
     mas_logcfg_files = []
@@ -274,38 +275,42 @@ try:
             mas_logcfg_files.append(dir.name)
     
     if len(mas_logcfg_files) == 0:
-        input(f'No log settings file was found in the {path_to_xml} folder. Press [Enter] to exit.')
+        message = f'No log settings file was found in the {path_to_xml} folder. Press [Enter] to exit.'
+        logging(message)
+        if not silent_mode:
+            input(message)
         sys.exit()
     
     while True:
 
         if silent_mode:
-            choice = int(mas_logcfg_files.index(silent['logcfg']))
-            if choice == -1:
+            logcfg_exist = silent['logcfg'] in mas_logcfg_files
+            if logcfg_exist:
+                choice = int(mas_logcfg_files.index(silent['logcfg'])) + 1
+                logging(f"index {mas_logcfg_files.index(silent['logcfg'])}")
+            else:
                 message = f'Error placement. File {silent["logcfg"]} not exists.'
                 print(message)
                 logging(message)
                 sys.exit(404)
-            else:
-                break
         else:
 
             print('Which settings file to place?')
             for name_log in mas_logcfg_files:
                 print(f'[{mas_logcfg_files.index(name_log) + 1}] {name_log}')
             choice = int(input('Enter a number: '))
-            try:
-                if choice > len(mas_logcfg_files) or choice == '0':
-                    choice = input('Input error. Enter a number: ')
-                    continue
-                else:
-                    name_logcfg = f'logcfg{os.sep}{mas_logcfg_files[choice - 1]}'
-                    logging(f'Selected logcfg file [{name_logcfg}]')
-                    break
-
-            except Exception as e:
-                error_exc = str(type(e)) + str(e)
+        try:
+            if choice > len(mas_logcfg_files) or choice == '0':
                 choice = input('Input error. Enter a number: ')
+                continue
+            else:
+                name_logcfg = f'logcfg{os.sep}{mas_logcfg_files[choice - 1]}'
+                logging(f'Selected logcfg file [{name_logcfg}]')
+                break
+
+        except Exception as e:
+            error_exc = str(type(e)) + str(e)
+            choice = input('Input error. Enter a number: ')
 
     previously_created_logs = []
 
@@ -370,11 +375,13 @@ try:
     try:
         shutil.copyfile(f'{os.getcwd()}{os.sep}{name_logcfg}', purpose)
         logging('logcfg.xml successfully placed')
-        input('logcfg has been successfully placed. Press [Enter] to exit')
+        if not silent_mode:
+            input('logcfg has been successfully placed. Press [Enter] to exit')
     except Exception as e:
         error = str(type(e)) + str(e)
         logging(f'Placement error. {error}')
-        input(error)
+        if not silent_mode:
+            input(error)
 
     logging('THE PROGRAM WAS CLOSED')
 
