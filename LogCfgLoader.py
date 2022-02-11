@@ -8,7 +8,18 @@ import zipfile
 import configparser
 import tempfile
 import psutil
+import sys
 from datetime import datetime
+
+silent_mode = len(sys.argv) > 1
+
+if silent_mode:
+    silent = dict()
+    silent['target'] = sys.argv[1]
+    silent['action'] = sys.argv[2]
+    silent['logcfg'] = sys.atgv[3]
+    if silent['action'] == '-run':
+        silent['action_with_log'] = sys.argv[4]
 
 
 new_log = f'{os.getcwd()}{os.sep}log.txt'
@@ -141,6 +152,10 @@ def delete_files(tree_dir, is_file=False):
 
 
 def get_purpose_path():
+
+    if silent_mode:
+        return silent['target']
+
     list_of_mount = re.findall(r"[A-Z]+:.*$", os.popen("mountvol /").read(), re.MULTILINE)
 
     mas_of_path = []
@@ -203,12 +218,17 @@ try:
             print(f'[{actions_for_an_existing.index(action) + 1}] {action}')
 
         while True:
-            choice = input('Select an action: ')
+            if silent_mode and silent['action'] == '-stop':
+                choice = '1'
+            elif silent_mode and silent['action'] == 'run':
+                choice = '2'
+            else:
+                choice = input('Select an action: ')
 
-            if choice not in ('1', '2', '3', '4'):
-                logging(f'Bad number action for existing file. Input : [{choice}]')
-                input('Input error. Try again.')
-                continue
+                if choice not in ('1', '2', '3', '4'):
+                    logging(f'Bad number action for existing file. Input : [{choice}]')
+                    input('Input error. Try again.')
+                    continue
 
             choice = int(choice)
 
@@ -258,22 +278,34 @@ try:
         sys.exit()
     
     while True:
-        print('Which settings file to place?')
-        for name_log in mas_logcfg_files:
-            print(f'[{mas_logcfg_files.index(name_log) + 1}] {name_log}')
-        choice = int(input('Enter a number: '))
-        try:
-            if choice > len(mas_logcfg_files) or choice == '0':
-                choice = input('Input error. Enter a number: ')
-                continue
-            else:
-                name_logcfg = f'logcfg{os.sep}{mas_logcfg_files[choice - 1]}'
-                logging(f'Selected logcfg file [{name_logcfg}]')
-                break
 
-        except Exception as e:
-            error_exc = str(type(e)) + str(e)
-            choice = input('Input error. Enter a number: ')
+        if silent_mode:
+            choice = int(mas_logcfg_files.index(silent['logcfg']))
+            if choice == -1:
+                message = f'Error placement. File {silent["logcfg"]} not exists.'
+                print(message)
+                logging(message)
+                sys.exit(404)
+            else:
+                break
+        else:
+
+            print('Which settings file to place?')
+            for name_log in mas_logcfg_files:
+                print(f'[{mas_logcfg_files.index(name_log) + 1}] {name_log}')
+            choice = int(input('Enter a number: '))
+            try:
+                if choice > len(mas_logcfg_files) or choice == '0':
+                    choice = input('Input error. Enter a number: ')
+                    continue
+                else:
+                    name_logcfg = f'logcfg{os.sep}{mas_logcfg_files[choice - 1]}'
+                    logging(f'Selected logcfg file [{name_logcfg}]')
+                    break
+
+            except Exception as e:
+                error_exc = str(type(e)) + str(e)
+                choice = input('Input error. Enter a number: ')
 
     previously_created_logs = []
 
@@ -290,7 +322,14 @@ try:
         print('\nPreviously created log collection destination folders were found.')
         for dest in previously_created_logs:
             print(f'{dest}')
-        choice = input('''What to do with them?
+
+        if silent_mode:
+            if silent['action_with_log'] == '-delete':
+                choice = '3'
+            elif silent['action_with_log'] == '-archive':
+                choice = '1'
+        else:
+            choice = input('''What to do with them?
      1 - archive. 
      2 - archive and exit.
      3 - delete.
