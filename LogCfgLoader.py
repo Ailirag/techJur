@@ -18,8 +18,9 @@ if silent_mode:
     silent['target'] = sys.argv[1]
     silent['logcfg'] = sys.argv[2]
     silent['action'] = sys.argv[3]
+    silent['letter_of_disk'] = sys.argv[4]
     if silent['action'] == '-run':
-        silent['action_with_log'] = sys.argv[4]
+        silent['action_with_log'] = sys.argv[5]
 
 
 new_log = f'{os.getcwd()}{os.sep}log.txt'
@@ -27,28 +28,20 @@ path_to_archives = f'{os.getcwd()}{os.sep}archives'
 path_to_xml = f'{os.getcwd()}{os.sep}logcfg'
 path_to_settings = f'{os.getcwd()}{os.sep}settings.ini'
 
-# current_file = os.path.abspath(__file__)
-# current_dir = current_file.replace(current_file.split(os.sep).pop(), '')
-#
-# print(f'Current dir: {current_dir}')
-#
-# new_log = f'{current_dir}{os.sep}log.txt'
-# path_to_archives = f'{current_dir}{os.sep}archives'
-# path_to_xml = f'{current_dir}{os.sep}logcfg'
-# path_to_settings = f'{current_dir}{os.sep}settings.ini'
-
-# print(f'Current dir {current_dir}')
 
 if not os.path.exists(path_to_archives):
     os.mkdir(path_to_archives)
-    
+
+
 if not os.path.exists(path_to_xml):
     os.mkdir(path_to_xml)
 
 
 def logging(message, error=False):
     with open(new_log, 'a') as log:
-        log.write(f'{datetime.now()} : {message}\n')
+        text = f'{datetime.now()} : {message}'
+        print(text)
+        log.write(f'{text}\n')
 
 config_file = configparser.ConfigParser()
 
@@ -72,9 +65,6 @@ except Exception as e:
     input(f'File reading error [settings.ini]. You can delete this file to restore the stage settings. {error_exc}')
     sys.exit()
 
-variables_of_path = ['Program Files\\1cv8', 'Program Files (x86)\\1cv8']
-
-
 actions_for_an_existing = [
     'Delete a file logcfg.xml and remove the archive of the collected data',
     'Replace logcfg.xml with another one',
@@ -91,8 +81,11 @@ def do_archivation(destinations):
     logging('Archiving in progress...')
 
     name_archive = f'{path_to_archives}{os.sep}{prefix_archive_name}_archive_logs_{datetime.now().strftime("%d-%m-%Y-%H-%M")}.zip'
+    reserve_name_archive = f'{os.getcwd()}{os.sep}{prefix_archive_name}_archive_logs_{datetime.now().strftime("%d-%m-%Y-%H-%M")}.zip'
+
     name_archive_tmp = get_tempfile_name()
     error_archive = False
+    archiving_done = False
     while True:
         try:
             with zipfile.ZipFile(f'{name_archive_tmp}', 'w') as myzip:
@@ -102,6 +95,7 @@ def do_archivation(destinations):
                             myzip.write(os.path.join(root, file), compress_type=zipfile.ZIP_DEFLATED)
 
             logging(f'Archive record on a temp file on {name_archive_tmp}')
+            archiving_done = True
             shutil.move(name_archive_tmp, name_archive)
             logging(f'Previous logs are archived in {name_archive}')
             print(f'Successfully archived in {name_archive}, you can take it.')
@@ -114,6 +108,9 @@ def do_archivation(destinations):
             logging(f'Archiving failed with an error: {error_exc}')
             input(f'Archiving error. The program will be closed. {error_exc}')
             error_archive = True
+            if archiving_done:
+                shutil.move(name_archive_tmp, reserve_name_archive)
+                logging(f'Archive moved to {reserve_name_archive}')
             break
 
     return name_archive, error_archive
@@ -153,9 +150,6 @@ def delete_files(tree_dir, is_file=False):
 
 def get_purpose_path():
 
-    if silent_mode:
-        return silent['target']
-
     list_of_mount = re.findall(r"[A-Z]+:.*$", os.popen("mountvol /").read(), re.MULTILINE)
 
     mas_of_path = []
@@ -166,20 +160,13 @@ def get_purpose_path():
             finded = re.findall("([\w]:.*?)\\\\bin\\\\ragent.exe", binpath)
             if finded:
                 mas_of_path.append(finded[0])
-        # if re.
-        # if proc.binpath().find('1cv8') and proc.status() == 'running':
-        #     mas_of_path.append(proc.binpath().split('bin')[0])
 
-    # start old mechanism
-    # for disk in list_of_mount:
-    #     for path in variables_of_path:
-    #         if os.path.exists(disk + path):
-    #             variant = f'{disk}{path}'
-    #             with os.scandir(variant) as directories:
-    #                 for dir in directories:
-    #                     if dir.name.find('8.') != -1:
-    #                         mas_of_path.append(dir.path)
-    # end old mechanism
+    if silent_mode:
+        if len(mas_of_path) == 1:
+            return f'{mas_of_path[0]}{os.sep}bin{os.sep}conf{os.sep}logcfg.xml'
+        else:
+            return silent['target']
+
 
     if len(mas_of_path) > 1:
         logging(f'Find {len(mas_of_path) - 1} paths of platforms 1C')
@@ -373,6 +360,20 @@ try:
                 choice = input('Selection error.\What to do with them? 1 - archive. 2 - delete, 3 - exit')
 
     try:
+        if silent_mode:
+            with open(f'{os.getcwd()}{os.sep}{name_logcfg}', 'r', encoding='utf-8') as flog:
+                all_text = flog.read()
+
+            current_letter = set(re.findall('log location=["\']([\w]:\\\\).*?[\'"]', all_text))
+
+            if list(current_letter)[0][0].lower() != silent['letter_of_disk'].lower():
+                logging(f"Change letter of disk destination on [{list(current_letter)[0][0]}] to [{silent['letter_of_disk'].lower()}]")
+
+                all_text = all_text.replace(list(current_letter)[0], f"{silent['letter_of_disk']}:\\")
+                with open(f'{os.getcwd()}{os.sep}{name_logcfg}', 'w', encoding='utf-8') as flog:
+                    flog.write(all_text)
+        # edit log location for silent
+
         shutil.copyfile(f'{os.getcwd()}{os.sep}{name_logcfg}', purpose)
         logging('logcfg.xml successfully placed')
         if not silent_mode:
